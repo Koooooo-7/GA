@@ -1,0 +1,150 @@
+import  random
+import matplotlib.pyplot as plt
+#一个简单的遗传算法实现，要想输出趋近稳定最优解，各项参数等还需要调整。
+#解决问题：
+#有A-K共11个不同的点，从原点出发只经过各点一次后再返回原点的最短（相对）路径。
+#[A ,B, C, D, E, F, G, H, I, J, K]
+#假设A-K不同点的坐标。
+ori_chromosome=["A","B","C", "D", "E", "F", "G", "H", "I", "J", "K"]
+the_distance={"A":(1,1),"B":(2,5),"C":(15,2),"D":(17,7),"E":(22,11),"F":(17,13),"G":(5,11),"H":(8,19),"I":(0,9),
+              "J":(11,4),"K":(17,7)}
+class GA():
+    def __init__(self,count,length):
+        self.count = count   #the population num
+        self.length = length #the chromosome length
+        self.population=self.get_population()
+    def cre_chromosome(self):   #  生成单个基因
+        self.chromosome=[]
+        while len(self.chromosome)<self.length:
+            i = random.randint(0, self.length-1)
+            if ori_chromosome[i] not in self.chromosome:
+                self.chromosome.append(ori_chromosome[i])
+        return self.chromosome
+    def get_population(self):  #生成初始种群
+        get_popul=[]
+        for i in range(self.count):
+                 get_chromosome=self.cre_chromosome()
+                 get_popul.append(get_chromosome)
+        return  get_popul
+
+    def get_the_kid(self, a_male, a_female): #产生子代交叉方法采用了西门子仿真软件的次序交叉方法
+        # cut the chromosome to 4 5 2
+        the_cut_from_female = a_female[4:9]  # 1 2 3 4 5 6 7 8 9 10 11  ->56789
+        for i in range(len(a_male)):
+            if a_male[i] in the_cut_from_female:
+                a_male[i] = ""
+        the_last_head = []
+        the_last_middle = []
+        the_last_end = []
+        for i in a_male[:4]:
+            if i:
+                the_last_head.append(i)
+        for j in a_male[4:9]:
+            if j:
+                the_last_middle.append(j)
+        for z in a_male[9:]:
+            if z:
+                the_last_end.append(z)
+
+        the_last = the_last_end + the_last_head + the_last_middle
+        the_kid = the_last[2:] + the_cut_from_female + the_last[:2]
+        return the_kid
+    def the_cross(self): #选取两条DNA进行交叉
+        k=0
+        the_children=[]
+        the_population=self.population
+
+
+        while k<self.count:   #筛选过后补足种群
+            male_num = random.randint(0, len(self.population)-1)
+            female_num = random.randint(0, len(self.population)-1)
+            if male_num !=female_num:
+                male=the_population[male_num]
+                female=the_population[female_num]
+                child_1=self.get_the_kid(male[:],female[:])
+                child_2=self.get_the_kid(female[:],male[:])
+                the_children.append(child_1)
+                the_children.append(child_2)
+                k+=1
+
+       # print("KID:",the_children)
+        return   the_children
+
+
+    def parents_and_children(self):   #繁衍出的父辈和子代做变异处理
+        all_family=self.population+self.the_cross()
+        #set the change_rate=0.01
+        for i in range(len(all_family)):   #BY 变异概率为0.01  随机交换两个基因位置
+            if random.random()<0.01:
+               the_luck_one_num=random.randint(0,len(all_family)-1)
+               the_luck_one=all_family[the_luck_one_num]
+               the_changenum_1=random.randint(0,self.length-1)
+               the_changenum_2=random.randint(0,self.length-1)
+               the_luck_one[the_changenum_1],the_luck_one[the_changenum_2]=the_luck_one[the_changenum_2],the_luck_one[the_changenum_1]
+               all_family[the_luck_one_num]=the_luck_one
+
+
+        return  all_family  #the whole new population
+
+    def get_distance(self,one_chromosome):   #评估函数 以每一条DNA对应总距离为评估对象
+        # change the A,B,C... to the   (1,1),(2,5),...
+        get_the_set=[]
+        for i in one_chromosome:
+            get_the_set.append(the_distance[i])
+        sum_distance=0
+        for j in  range(self.length-1):
+            sum_distance+=(abs((get_the_set[j+1][0]-get_the_set[j][0])**2+(get_the_set[j+1][1]-get_the_set[j][1]**2)))**0.5
+        sum_distance=(get_the_set[0][0]**2+get_the_set[0][1]**2)**0.5+sum_distance+(get_the_set[-1][0]**2+get_the_set[-1][1]**2)**0.5
+        return  sum_distance
+
+
+    def get_whole_list(self):   #对生成的子代与父辈进行筛选进入下一代，保留率为80%
+        save_list=[]
+        get_population=self.parents_and_children()
+        the_list=[(self.get_distance(x),x) for x in get_population]
+        sorted_list=sorted(the_list,key=lambda x:x[0])
+        for i in sorted_list[:int(self.count*0.8)]:   #保留优秀的前80%
+            save_list.append(i[1])
+        n=0
+        save_list_2=[]
+        while  n<int(self.count*0.2):       #幸存者  幸存概率为0.2
+           a=random.randint(int(self.count*0.8),self.count-1)
+           if  random.random()<0.2:      #save rate
+               save_list_2.append(sorted_list[a][1])
+               save_list=save_list+save_list_2
+               n+=1
+        self.population=save_list
+        return self.population
+    def get_run(self):  #交叉繁衍进化
+        self.the_cross()
+        self.get_whole_list()
+        return self.population
+    def get_result(self):  #获取每一代的最优输出
+        the_result=self.get_whole_list()
+        the_re=self.get_distance(the_result[0])
+        return (the_re,the_result[0])
+
+
+
+
+
+
+if __name__=="__main__":
+    x_num=[]
+    y_num=[]
+    #for i in range(50):
+    ga=GA(120,11)  #设置DNA长度为11，初始总群数量120
+
+    for j in range(300):  #繁衍300代
+        ga.get_run()
+        print(ga.get_result())
+        x_num.append(j)       #记录每一次的结果
+        y_num.append(ga.get_result()[0])
+
+    plt.Figure()
+    plt.plot(x_num,y_num)    #输出可视化结果
+    plt.title("GA")
+    plt.xlabel("Times")
+    plt.ylabel("sumDistance")
+   # plt.ylim(0,100)
+    plt.show()
